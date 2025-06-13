@@ -1,0 +1,55 @@
+services:
+  database:
+    ports:
+      - '5432:5432'
+    container_name: golikov-postgres-backend-app
+    image: postgres:14.8-alpine3.18
+    environment:
+      POSTGRES_DB: ${DB_NAME:?error}
+      POSTGRES_USER: ${DB_USERNAME:?error}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?error}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME} -d ${DB_NAME}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10mb'
+        max-file: '10'
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${DB_USERNAME}:${DB_PASSWORD}@database:5432/${DB_NAME}?schema=public
+    ports:
+      - '3000:3000'
+    networks:
+      - backend
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10mb'
+        max-file: '10'
+
+networks:
+  backend:
+
+volumes:
+  db-data:
